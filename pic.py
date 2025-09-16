@@ -7,8 +7,7 @@ import streamlit as st
 def load_model():
     model_id = "runwayml/stable-diffusion-v1-5"
     pipe = StableDiffusionPipeline.from_pretrained(
-        model_id, torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-    )
+        model_id, torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return pipe.to(device)
 
@@ -38,5 +37,4 @@ if st.button("Generate Image"):
                 label="Download Image",
                 data=file,
                 file_name="generated_image.png",
-                mime="image/png"
-            )
+                mime="image/png")
