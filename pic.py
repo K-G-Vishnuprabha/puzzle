@@ -1,4 +1,4 @@
-# app_streamlit_puzzle.py
+# app_streamlit_puzzle_drag.py
 
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
@@ -10,26 +10,20 @@ def make_placeholder_image(prompt, size=(512, 512)):
     w, h = size
     img = Image.new("RGB", (w, h), (240, 245, 255))
     draw = ImageDraw.Draw(img)
-
-    # decorative shapes
     for _ in range(12):
         x0, y0 = random.randint(0, w-100), random.randint(0, h-100)
         x1, y1 = x0 + random.randint(50, 200), y0 + random.randint(50, 200)
         color = (random.randint(100, 220), random.randint(100, 220), random.randint(100, 220))
         draw.ellipse([x0, y0, x1, y1], fill=color)
-
-    # prompt text
     try:
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
     except:
         font = ImageFont.load_default()
-
     if hasattr(draw, "textbbox"):
         bbox = draw.textbbox((0, 0), prompt, font=font)
         tw, th = bbox[2]-bbox[0], bbox[3]-bbox[1]
     else:
         tw, th = font.getsize(prompt)
-
     draw.text(((w-tw)//2, (h-th)//2), prompt, fill="black", font=font)
     return img
 
@@ -51,9 +45,18 @@ def shuffle_tiles(tiles):
     random.shuffle(perm)
     return [tiles[i] for i in perm], perm
 
+def movable_tiles(blank_idx, n):
+    br, bc = divmod(blank_idx, n)
+    moves = []
+    for r_offset, c_offset in [(-1,0),(1,0),(0,-1),(0,1)]:
+        r, c = br+r_offset, bc+c_offset
+        if 0 <= r < n and 0 <= c < n:
+            moves.append(r*n + c)
+    return moves
+
 # ---------- Streamlit UI ----------
 st.set_page_config(page_title="Concept → Puzzle", layout="wide")
-st.title("🖼 Concept → Sliding Puzzle (Fast, Free)")
+st.title("🖼 Concept → Sliding Puzzle (Click-to-Move)")
 
 prompt = st.text_input("Enter a concept / prompt:", value="A sunny day at the beach")
 grid_size = st.slider("Grid size:", min_value=2, max_value=6, value=3)
@@ -70,9 +73,10 @@ if st.button("Generate Image & Puzzle"):
 if "original_image" in st.session_state:
     st.image(st.session_state.original_image, caption="Placeholder Image", use_column_width=False)
 
-# Puzzle Grid
+# Puzzle Grid with highlights
 if "shuffled_tiles" in st.session_state:
     n = grid_size
+    moves = movable_tiles(st.session_state.blank_idx, n)
     for r in range(n):
         cols = st.columns(n)
         for c in range(n):
@@ -81,9 +85,15 @@ if "shuffled_tiles" in st.session_state:
             buf = io.BytesIO()
             tile_img.save(buf, format="PNG")
             img_bytes = buf.getvalue()
-            if cols[c].button("", key=f"tile_{idx}"):
-                br, bc = divmod(st.session_state.blank_idx, n)
-                if (abs(r-br)==1 and c==bc) or (abs(c-bc)==1 and r==br):
+            # Highlight movable tiles
+            if idx in moves:
+                label = "🔹"
+            elif idx == st.session_state.blank_idx:
+                label = "⬛"
+            else:
+                label = ""
+            if cols[c].button(label, key=f"tile_{idx}"):
+                if idx in moves:
                     st.session_state.shuffled_tiles[idx], st.session_state.shuffled_tiles[st.session_state.blank_idx] = \
                         st.session_state.shuffled_tiles[st.session_state.blank_idx], st.session_state.shuffled_tiles[idx]
                     st.session_state.perm[idx], st.session_state.perm[st.session_state.blank_idx] = \
