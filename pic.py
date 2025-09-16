@@ -1,5 +1,5 @@
 concept_puzzle_app.py
-
+"""
 Standalone Python Tkinter app:
 - Generate an image from a text concept (uses OpenAI Images API if OPENAI_API_KEY is set).
 - Fallback to a generated placeholder image (PIL) if no API key or API call fails.
