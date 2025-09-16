@@ -434,4 +434,4 @@ def main():
     root.mainloop()
 
 if _name_ == "_main_":
-    main()
+    main()
