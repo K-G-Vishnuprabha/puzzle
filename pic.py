@@ -15,7 +15,7 @@ except ImportError:
     GEMINI_AVAILABLE = False
 
 
-API_KEY = "AIzaSyCc3gDVXYwBXW00H5O-pQG1g2lo2QOHESA"
+API_KEY = "AIzaSyC-M67oE4cgOIXqjabD-emkOrS6WTwowVw"
 
 if GEMINI_AVAILABLE:
     client = genai.Client(api_key=API_KEY)
