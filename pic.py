@@ -1,4 +1,4 @@
-# concept_puzzle_app_streamlit.py
+# # app.py
 
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
@@ -27,7 +27,14 @@ def make_placeholder_image(prompt, size=(512, 512)):
         font = ImageFont.truetype("DejaVuSans-Bold.ttf", 28)
     except:
         font = ImageFont.load_default()
-    tw, th = draw.textsize(prompt, font=font)
+
+    # get text size safely
+    if hasattr(draw, "textbbox"):
+        bbox = draw.textbbox((0, 0), prompt, font=font)
+        tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    else:
+        tw, th = font.getsize(prompt)
+
     draw.text(((w - tw)//2, (h - th)//2), prompt, fill="black", font=font)
     return img
 
@@ -54,44 +61,61 @@ def shuffle_tiles(tiles):
 
 # ---------- Streamlit App ----------
 st.set_page_config(page_title="Concept → Puzzle", layout="wide")
-
 st.title("🖼 Concept → Sliding Puzzle (Fast, Offline)")
 
+# Inputs
 prompt = st.text_input("Enter a concept / prompt:", value="A sunny day at the beach")
 grid_size = st.slider("Grid size:", min_value=2, max_value=6, value=3)
 
+# Generate image
 if st.button("Generate Image"):
     st.session_state.image = make_placeholder_image(prompt)
-    st.session_state.tiles = split_image_to_tiles(st.session_state.image.resize((grid_size*128, grid_size*128)), grid_size)
+    # Resize to square
+    side = min(st.session_state.image.size)
+    img_cropped = st.session_state.image.crop((
+        (st.session_state.image.size[0]-side)//2,
+        (st.session_state.image.size[1]-side)//2,
+        (st.session_state.image.size[0]+side)//2,
+        (st.session_state.image.size[1]+side)//2
+    ))
+    img_resized = img_cropped.resize((grid_size*128, grid_size*128))
+    st.session_state.tiles = split_image_to_tiles(img_resized, grid_size)
     st.session_state.shuffled_tiles, st.session_state.perm = shuffle_tiles(st.session_state.tiles)
     st.session_state.blank_idx = grid_size*grid_size - 1
     st.session_state.solved = False
 
+# Show placeholder image
 if "image" in st.session_state:
     st.image(st.session_state.image, caption="Placeholder Image", use_column_width=False)
 
+# Puzzle
 if "shuffled_tiles" in st.session_state:
     st.subheader("🧩 Puzzle")
-    cols = st.columns(grid_size)
-    for i, col in enumerate(cols):
-        for j in range(grid_size):
-            idx = i*grid_size + j
+    n = grid_size
+    # Create a grid of buttons
+    for r in range(n):
+        cols = st.columns(n)
+        for c in range(n):
+            idx = r*n + c
             tile_img = st.session_state.shuffled_tiles[idx]
-            if st.button("", key=f"tile_{idx}", help="Click to move"):
-                # Move tile if adjacent to blank
-                n = grid_size
-                r, c = divmod(idx, n)
+            # Streamlit requires saving to buffer to display PIL image on button
+            import io
+            buf = io.BytesIO()
+            tile_img.save(buf, format="PNG")
+            img_bytes = buf.getvalue()
+            if cols[c].button("", key=f"tile_{idx}", use_container_width=True):
                 br, bc = divmod(st.session_state.blank_idx, n)
-                if (abs(r-br) == 1 and c==bc) or (abs(c-bc)==1 and r==br):
+                if (abs(r-br) == 1 and c==bc) or (abs(c-bc) == 1 and r==br):
                     st.session_state.shuffled_tiles[idx], st.session_state.shuffled_tiles[st.session_state.blank_idx] = \
                         st.session_state.shuffled_tiles[st.session_state.blank_idx], st.session_state.shuffled_tiles[idx]
                     st.session_state.perm[idx], st.session_state.perm[st.session_state.blank_idx] = \
                         st.session_state.perm[st.session_state.blank_idx], st.session_state.perm[idx]
                     st.session_state.blank_idx = idx
                     # Check solved
-                    if st.session_state.perm == list(range(grid_size*grid_size)):
+                    if st.session_state.perm == list(range(n*n)):
                         st.session_state.solved = True
+            cols[c].image(img_bytes, use_column_width=True)
+
     if st.session_state.solved:
         st.success("🎉 Puzzle Solved!")
-        
         
