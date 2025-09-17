@@ -14,7 +14,6 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
-
 API_KEY = "AIzaSyC-M67oE4cgOIXqjabD-emkOrS6WTwowVw"
 
 if GEMINI_AVAILABLE:
@@ -47,7 +46,7 @@ class PuzzleApp:
     def __init__(self, root, image: Image.Image, grid_size=3, player="Player"):
         self.root = root
         self.grid_size = grid_size
-        self.original_image = image.copy()  # keep original for hints
+        self.original_image = image.copy()
         self.image = image
         self.player = player
         self.pieces = []
@@ -93,8 +92,9 @@ class PuzzleApp:
         self.info_label.pack(pady=10)
 
         # Hint button
-        tk.Button(self.root, text="🔍 Show Hint (Penalty +5 moves)",
-                  command=self.show_original).pack(pady=5)
+        self.hint_button = tk.Button(self.root, text="🔍 Show Hint (Penalty +5 moves)",
+                                     command=self.show_original)
+        self.hint_button.pack(pady=5)
 
         self.update_timer()
 
@@ -126,22 +126,36 @@ class PuzzleApp:
         return all(i == tile for i, tile in enumerate(self.tiles))
 
     def show_original(self):
-        """Show the original full image in a popup."""
+        """Show the original full image in a popup (blocks game while open)."""
         self.moves += 5  # penalty
+        self.update_timer()
+
         top = tk.Toplevel(self.root)
         top.title("Original Image (Hint)")
+
+        # Make the hint window modal (blocks interaction with main window)
+        top.transient(self.root)
+        top.grab_set()  # ⛔ Blocks interaction with main window
+
         preview = self.original_image.resize((300, 300))
         img_preview = ImageTk.PhotoImage(preview)
         lbl = tk.Label(top, image=img_preview)
         lbl.image = img_preview
         lbl.pack()
+
         tk.Label(top, text="Hint Used (+5 Moves)", fg="red").pack()
         tk.Button(top, text="Close", command=top.destroy).pack(pady=5)
+
+        # Once closed, resume interaction
+        def on_close():
+            top.grab_release()
+            top.destroy()
+
+        top.protocol("WM_DELETE_WINDOW", on_close)
 
     def on_win(self):
         elapsed = int(time.time() - self.start_time)
 
-        # Show original alongside solved puzzle
         win_top = tk.Toplevel(self.root)
         win_top.title("🎉 Puzzle Solved!")
 
@@ -156,7 +170,6 @@ class PuzzleApp:
         lbl.image = img_preview
         lbl.pack(pady=10)
 
-        # Save score
         with open("leaderboard.txt", "a") as f:
             f.write(f"{self.player},{self.grid_size}x{self.grid_size},{self.moves},{elapsed}\n")
 
@@ -172,17 +185,17 @@ def main():
     tk.Label(root, text="⚡ Welcome to TechFest Puzzle Game ⚡",
              font=("Arial", 16, "bold"), fg="cyan", bg="black").pack(pady=20)
 
-    tk.Label(root, text="Rules:\n1. Enter a concept to generate an image.\n"
+    tk.Label(root, text="Rules:\n1. Enter a prompt to generate an image.\n"
                         "2. Solve the puzzle as fast as you can!\n"
-                        "3. Hint adds +5 moves penalty.\n"
-                        "4. Choose difficulty wisely.",
+                        "3. Each hint adds +5 moves penalty.\n"
+                        "4. Game is paused while hint is visible.",
              font=("Arial", 12), fg="white", bg="black").pack(pady=10)
 
     player = simpledialog.askstring("Player Name", "Enter your name:")
     if not player:
         player = "Guest"
 
-    prompt = simpledialog.askstring("Image Prompt", "Enter a concept for your puzzle image:")
+    prompt = simpledialog.askstring("Image Prompt", "Enter a prompt for your puzzle image:")
     if not prompt:
         prompt = "Colorful abstract pattern"
 
