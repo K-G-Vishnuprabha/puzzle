@@ -14,8 +14,7 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
-API_KEY = "AIzaSyC-M67oE4cgOIXqjabD-emkOrS6WTwowVw"
-
+API_KEY ="AIzaSyBlzVvi0No3TcpKfquZHPHTWiL96ZwJuM4"
 if GEMINI_AVAILABLE:
     client = genai.Client(api_key=API_KEY)
 
@@ -153,8 +152,17 @@ class PuzzleApp:
 
         top.protocol("WM_DELETE_WINDOW", on_close)
 
+    def calculate_score(self, elapsed):
+        """Score out of 10 based on moves and time taken."""
+        # Lower moves + less time = higher score
+        raw_score = max(0, 10000 - ((self.moves * 20) + (elapsed * 10)))
+        score_out_of_10 = round((raw_score / 10000) * 10, 1)  # scale to 10
+        return score_out_of_10
+
+
     def on_win(self):
         elapsed = int(time.time() - self.start_time)
+        score = self.calculate_score(elapsed)
 
         win_top = tk.Toplevel(self.root)
         win_top.title("🎉 Puzzle Solved!")
@@ -163,6 +171,8 @@ class PuzzleApp:
                  font=("Arial", 14, "bold")).pack(pady=10)
         tk.Label(win_top, text=f"Moves: {self.moves} | Time: {elapsed}s",
                  font=("Arial", 12)).pack(pady=5)
+        tk.Label(win_top, text=f"Score: {score}",
+                 font=("Arial", 12, "bold"), fg="green").pack(pady=5)
 
         preview = self.original_image.resize((300, 300))
         img_preview = ImageTk.PhotoImage(preview)
@@ -171,7 +181,7 @@ class PuzzleApp:
         lbl.pack(pady=10)
 
         with open("leaderboard.txt", "a") as f:
-            f.write(f"{self.player},{self.grid_size}x{self.grid_size},{self.moves},{elapsed}\n")
+            f.write(f"{self.player},{self.grid_size}x{self.grid_size},{self.moves},{elapsed},{score}\n")
 
         tk.Button(win_top, text="Play Again", command=lambda: [self.root.destroy(), win_top.destroy(), main()]).pack(pady=10)
 
