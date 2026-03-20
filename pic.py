@@ -15,7 +15,7 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
-API_KEY ="AIzaSyC-M67oE4cgOIXqjabD-emkOrS6WTwowVw"
+API_KEY ="YOUR_API_KEY"
 
 if GEMINI_AVAILABLE:
     
