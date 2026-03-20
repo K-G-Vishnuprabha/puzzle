@@ -5,40 +5,48 @@ import random
 from io import BytesIO
 import os
 import time
+import requests
 
-# Gemini AI
+
 try:
     from google import genai
-    from google.genai.types import GenerateContentConfig, Modality
+    from google.genai import types   
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
 
-API_KEY ="AIzaSyBlzVvi0No3TcpKfquZHPHTWiL96ZwJuM4"
+API_KEY ="AIzaSyC-M67oE4cgOIXqjabD-emkOrS6WTwowVw"
+
 if GEMINI_AVAILABLE:
-    client = genai.Client(api_key=API_KEY)
+    
+    client = genai.Client(
+        api_key=API_KEY,
+        http_options=types.HttpOptions(api_version="v1")
+    )
 
 
 def generate_gemini_image(prompt: str) -> Image.Image:
-    """Generate an image using Gemini AI or fallback."""
-    if not GEMINI_AVAILABLE:
-        return Image.open("fallback.jpg")  # provide a fallback image
+    """Generate an image using AI or fallback random image."""
+    try:
+        if GEMINI_AVAILABLE:
+            response = client.models.generate_images(
+                model="gemini-3-flash-preview",
+                prompt=prompt
+            )
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-exp",
-        contents=prompt,
-        config=GenerateContentConfig(
-            response_modalities=[Modality.IMAGE, Modality.TEXT],
-            candidate_count=1,
-        )
-    )
-
-    for part in response.candidates[0].content.parts:
-        if part.inline_data:
-            img_bytes = part.inline_data.data
+            img_bytes = response.generated_images[0].image.image_bytes
             return Image.open(BytesIO(img_bytes))
 
-    raise RuntimeError("⚠️ No image found in Gemini response.")
+    except Exception as e:
+        print("AI image generation failed:", e)
+
+    # fallback image
+    try:
+        url = "https://picsum.photos/400"
+        img_bytes = requests.get(url).content
+        return Image.open(BytesIO(img_bytes))
+    except:
+        return Image.new("RGB", (400, 400), "gray")
 
 
 class PuzzleApp:
@@ -90,7 +98,6 @@ class PuzzleApp:
                                    font=("Arial", 12, "bold"), bg="black", fg="white")
         self.info_label.pack(pady=10)
 
-        # Hint button
         self.hint_button = tk.Button(self.root, text="🔍 Show Hint (Penalty +5 moves)",
                                      command=self.show_original)
         self.hint_button.pack(pady=5)
@@ -125,16 +132,14 @@ class PuzzleApp:
         return all(i == tile for i, tile in enumerate(self.tiles))
 
     def show_original(self):
-        """Show the original full image in a popup (blocks game while open)."""
-        self.moves += 5  # penalty
+        self.moves += 5
         self.update_timer()
 
         top = tk.Toplevel(self.root)
         top.title("Original Image (Hint)")
 
-        # Make the hint window modal (blocks interaction with main window)
         top.transient(self.root)
-        top.grab_set()  # ⛔ Blocks interaction with main window
+        top.grab_set()
 
         preview = self.original_image.resize((300, 300))
         img_preview = ImageTk.PhotoImage(preview)
@@ -145,7 +150,6 @@ class PuzzleApp:
         tk.Label(top, text="Hint Used (+5 Moves)", fg="red").pack()
         tk.Button(top, text="Close", command=top.destroy).pack(pady=5)
 
-        # Once closed, resume interaction
         def on_close():
             top.grab_release()
             top.destroy()
@@ -153,12 +157,9 @@ class PuzzleApp:
         top.protocol("WM_DELETE_WINDOW", on_close)
 
     def calculate_score(self, elapsed):
-        """Score out of 10 based on moves and time taken."""
-        # Lower moves + less time = higher score
         raw_score = max(0, 10000 - ((self.moves * 20) + (elapsed * 10)))
-        score_out_of_10 = round((raw_score / 10000) * 10, 1)  # scale to 10
+        score_out_of_10 = round((raw_score / 10000) * 10, 1)
         return score_out_of_10
-
 
     def on_win(self):
         elapsed = int(time.time() - self.start_time)
@@ -212,8 +213,8 @@ def main():
     try:
         img = generate_gemini_image(prompt)
     except Exception as e:
-        messagebox.showerror("Error", f"Image generation failed:\n{e}\nLoading fallback image.")
-        img = Image.open("fallback.jpg")
+        print(e)
+        img = Image.new("RGB", (400, 400), "gray")
 
     def start_game(size):
         root.destroy()
